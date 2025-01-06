@@ -43,12 +43,13 @@ export interface ListenerProxy {
 class SerialPort {
   private path: string;
   private eventEmitter: any;
+  private listeners: ListenerProxy[];
   private subscriptions: EventSubscription[];
 
   constructor(serialPort: SerialPortWrapper, eventEmitter: EventEmitter) {
     this.path = serialPort.path;
     this.eventEmitter = eventEmitter;
-   
+    this.listeners = [];
     this.subscriptions = [];
   }
 
@@ -85,6 +86,11 @@ class SerialPort {
       const buff = Buffer.from(event.data, 'hex');
       listener(buff);
     }
+
+    this.listeners.push({
+      event: DataReceivedEvent,
+      listener: listenerProxy
+    });
     const sub = this.eventEmitter.addListener(DataReceivedEvent, listenerProxy)
     this.subscriptions.push(sub);
     return sub;
