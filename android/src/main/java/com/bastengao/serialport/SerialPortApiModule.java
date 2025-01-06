@@ -113,14 +113,14 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     //     String[] paths = finder.getAllDevicesPath();
     //     for (String path : paths) {
     //         p.pushString(path);
-    //     }
+    //     }    
     //     callback.invoke(p);
     // }
 
-    // @ReactMethod
-    // public void setSuPath(final String suPath) {
-    //     SerialPort.setSuPath(suPath);
-    // }
+    @ReactMethod
+    public void setSuPath() {
+        Process process = Runtime.getRuntime().exec("su");
+    }
 
     // @ReactMethod
     // public void getSuPath(final Callback callback) {
