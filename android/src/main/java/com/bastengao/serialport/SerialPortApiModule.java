@@ -120,7 +120,7 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     @ReactMethod
     public void setSuPath() {
         try {
-            Process process = Runtime.getRuntime().exec("su");
+            Process process = Runtime.getRuntime().exec("/system/xbin/su");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
