@@ -79,11 +79,8 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
             });
 
             readerThread.start();
-            readerThread.join();
         } catch (IOException e) {
             System.err.println("TESTAPP Error: " + e.getMessage());
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
     }
 
