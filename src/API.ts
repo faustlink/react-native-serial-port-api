@@ -71,10 +71,10 @@ export default class API {
    * set su binary path
    * @param {string} suPath
    */
-  static setSuPath() {
-    if (Platform.OS !== 'android') throw new Error(`Not support ${Platform.OS}`)
-    SerialPortAPI.setSuPath();
-  }
+  // static setSuPath() {
+  //   if (Platform.OS !== 'android') throw new Error(`Not support ${Platform.OS}`)
+  //   SerialPortAPI.setSuPath();
+  // }
 
   /**
    * get su binary path
