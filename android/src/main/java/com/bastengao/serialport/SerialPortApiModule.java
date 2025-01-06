@@ -1,4 +1,7 @@
 package com.bastengao.serialport;
+import android.os.Handler;
+import android.os.HandlerThread;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -18,6 +21,8 @@ import java.util.regex.Pattern;
 
 public class SerialPortApiModule extends ReactContextBaseJavaModule implements EventSender {
     private final ReactApplicationContext reactContext;
+    private HandlerThread backgroundThread;
+    private Handler backgroundHandler;
     private volatile boolean keepReading = true;
     private static final Pattern JSON_PATTERN = Pattern.compile("\\{[^{}]*\\}");
     // private final SerialPortFinder finder = new SerialPortFinder();
@@ -26,6 +31,9 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     public SerialPortApiModule(final ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
+        backgroundThread = new HandlerThread("FileReaderThread");
+        backgroundThread.start();
+        backgroundHandler = new Handler(backgroundThread.getLooper());
     }
 
     @Override
@@ -45,7 +53,6 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
 
     @ReactMethod
     public void startReading(final String filePath) {
-        keepReading = true;
         System.out.println("Start Reading...");
         File device = new File(filePath); // Replace with your device file
         if (!device.exists()) {
@@ -55,7 +62,8 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
 
         try (FileInputStream inputStream = new FileInputStream(device)) {
             // Thread to continuously read from the serial device
-            Thread readerThread = new Thread(() -> {
+            Handler handler = new Handler(reactContext.getMainLooper());
+            backgroundHandler.post(() -> {
                 byte[] buffer = new byte[1024];
                 while (keepReading) {
                     try {
@@ -77,8 +85,6 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
                     }
                 }
             });
-
-            readerThread.start();
         } catch (IOException e) {
             System.err.println("TESTAPP Error: " + e.getMessage());
         }
