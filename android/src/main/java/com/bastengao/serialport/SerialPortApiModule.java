@@ -60,10 +60,8 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
             return;
         }
 
-        try (FileInputStream inputStream = new FileInputStream(device)) {
-            // Thread to continuously read from the serial device
-            Handler handler = new Handler(reactContext.getMainLooper());
-            backgroundHandler.post(() -> {
+        backgroundHandler.post(() -> {
+            try (FileInputStream inputStream = new FileInputStream(device)) {
                 byte[] buffer = new byte[1024];
                 while (keepReading) {
                     try {
@@ -84,10 +82,11 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
                         keepReading = false; // Stop the loop on error
                     }
                 }
-            });
-        } catch (IOException e) {
-            System.err.println("TESTAPP Error: " + e.getMessage());
-        }
+                // Thread to continuously read from the serial device
+            } catch (IOException e) {
+                System.err.println("TESTAPP Error: " + e.getMessage());
+            }
+        });
     }
 
     @ReactMethod
