@@ -24,9 +24,7 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     private HandlerThread backgroundThread;
     private Handler backgroundHandler;
     private volatile boolean keepReading = true;
-    private static final Pattern JSON_PATTERN = Pattern.compile("\\{[^{}]*\\}");
-    // private final SerialPortFinder finder = new SerialPortFinder();
-    // private final Map<String, SerialPortWrapper> serialPorts = new HashMap<String, SerialPortWrapper>();
+    private static final Pattern JSON_PATTERN = Pattern.compile("\\{(?:[^{}]*|\\{.*?\\})*\\}");
 
     public SerialPortApiModule(final ReactApplicationContext reactContext) {
         super(reactContext);
