@@ -14,6 +14,14 @@ export default class API {
     SerialPortAPI.stopReading();
   }
 
+  static async fileExists(uri: string, fileName: string): Promise<boolean> {
+    return await SerialPortAPI.fileExists(uri, fileName)
+  }
+
+  static async deleteFile(uri: string, fileName: string): Promise<boolean> {
+    return await SerialPortAPI.deleteFile(uri, fileName);
+  }
+
   static async writeToCsv(uri: string, fileName: string, data: string) {
     console.log("Writing to file...");
     await SerialPortAPI.writeToCsv(uri, fileName, data)

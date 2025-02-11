@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.provider.DocumentsContract;
+import androidx.documentfile.provider.DocumentFile;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
@@ -43,7 +44,7 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     private HandlerThread backgroundThread;
     private Handler backgroundHandler;
     private volatile boolean keepReading = false;
-    private static final Pattern JSON_PATTERN = Pattern.compile("\\{(?:[^{}]*|\\{.*?\\})*\\}");
+    private FileInputStream inputStream;
 
     public SerialPortApiModule(final ReactApplicationContext reactContext) {
         super(reactContext);
@@ -69,30 +70,28 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
         }
 
         backgroundHandler.post(() -> {
-            try (FileInputStream inputStream = new FileInputStream(device)) {
+            try {
+                inputStream = new FileInputStream(device);
                 byte[] buffer = new byte[1024];
+
                 while (keepReading) {
                     try {
                         int bytesRead = inputStream.read(buffer);
-                        if (bytesRead > 10) {
-                            String receivedData = new String(buffer, 0, bytesRead);
-                            System.out.println("Received: " + receivedData);
-                            WritableMap event = Arguments.createMap();
-                            String clean = cleanData(receivedData);
-                            event.putString("data", clean);
-                            sendEvent("onDataReceived", event);
-                        } else if (bytesRead == -1) {
-                            System.err.println("End of stream reached, stopping reader...");
-                            keepReading = false; // Stop loop if EOF is reached
-                        }
+                        if (bytesRead == -1) break; // End of file
+                        String receivedData = new String(buffer, 0, bytesRead);
+                        System.out.println("Received: " + receivedData);
+                        WritableMap event = Arguments.createMap();
+                        event.putString("data", cleanData(receivedData));
+                        sendEvent("onDataReceived", event);
                     } catch (IOException e) {
                         System.err.println("Error reading serial data: " + e.getMessage());
-                        keepReading = false; // Stop the loop on error
+                        break; // Exit on error
                     }
                 }
-                // Thread to continuously read from the serial device
             } catch (IOException e) {
-                System.err.println("TESTAPP Error: " + e.getMessage());
+                System.err.println("Error opening file: " + e.getMessage());
+            } finally {
+                closeInputStream();
             }
         });
     }
@@ -101,6 +100,70 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     public void stopReading() {
         keepReading = false;
         System.out.println("Stopped reading from serial port.");
+    }
+
+
+    private void closeInputStream() {
+        if (inputStream != null) {
+            try {
+                inputStream.close();
+                inputStream = null;
+            } catch (IOException e) {
+                System.err.println("Error closing input stream: " + e.getMessage());
+            }
+        }
+    }
+
+    @ReactMethod
+    public void fileExists(String uri, String fileName, Promise promise) {
+        try {
+            Uri directoryUri = Uri.parse(uri);
+
+            DocumentFile directory = DocumentFile.fromTreeUri(reactContext, directoryUri);
+
+            for (DocumentFile file : directory.listFiles()) {
+                if (file.getName().equals(fileName) && file.isFile()) {
+                    promise.resolve(true);
+                    return;
+                }
+            }
+
+            promise.resolve(false);
+        } catch (Exception e) {
+            promise.reject("An error occured", e);
+        }
+    }
+
+    @ReactMethod
+    public void deleteFile(String uri, String fileName, Promise promise) {
+        try {
+            Uri directoryUri = Uri.parse(uri);
+
+            // Wrap the directory URI in a DocumentFile
+            DocumentFile directory = DocumentFile.fromTreeUri(reactContext, directoryUri);
+            if (directory == null || !directory.exists() || !directory.isDirectory()) {
+                promise.reject("InvalidDirectory", "The provided directory URI is not valid.");
+                return;
+            }
+
+            // Find the file in the directory
+            for (DocumentFile file : directory.listFiles()) {
+                if (file.getName().equals(fileName) && file.isFile()) {
+                    // Delete the file
+                    if (file.delete()) {
+                        promise.resolve(true); // File deleted successfully
+                        return;
+                    } else {
+                        promise.reject("DeleteFailed", "Failed to delete the file.");
+                        return;
+                    }
+                }
+            }
+
+            promise.resolve(false); // File not found in the directory
+        } catch (Exception e) {
+            promise.reject("Error", e);
+        }
     }
 
     @ReactMethod
@@ -268,17 +331,37 @@ public class SerialPortApiModule extends ReactContextBaseJavaModule implements E
     }
 
     private String cleanData(String input) {
-        Matcher matcher = JSON_PATTERN.matcher(input);
+        int startIndex = -1;
+        int braceCount = 0;
+        String lastValidJson = null;
 
-        String validPayload = null;
+        // Find all potential JSON blocks
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
 
-        // Iterate through all JSON matches and take the last one (the valid one)
-        while (matcher.find()) {
-            validPayload = matcher.group();
+            if (c == '{') {
+                if (braceCount == 0) {
+                    startIndex = i; // Mark the start of JSON
+                }
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+
+                if (braceCount == 0 && startIndex != -1) {
+                    String jsonCandidate = input.substring(startIndex, i + 1).trim();
+
+                    // Skip empty JSON blocks
+                    if (!jsonCandidate.equals("{}") && !jsonCandidate.equals("{{}}")) {
+                        lastValidJson = jsonCandidate; // Store the last valid JSON
+                    }
+
+                    startIndex = -1; // Reset for next potential JSON
+                }
+            }
         }
 
-        // Return the valid payload (the last JSON object found)
-        return validPayload;
+        // Return the last valid JSON or a default empty JSON if none found
+        return lastValidJson != null ? lastValidJson : "{}";
     }
     public void sendEvent(final String eventName, final WritableMap event) {
         reactContext.runOnUiQueueThread(new Runnable() {
